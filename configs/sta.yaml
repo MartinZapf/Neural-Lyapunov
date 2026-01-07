@@ -1,0 +1,102 @@
+# STA (Super-Twisting Algorithm) - Best HPO Configuration
+# Results: A = 0.003 exclusion area
+
+seed: 42
+deterministic: true
+train_multi_disturbance: false
+
+controller:
+  name: sta
+  params:
+    k1: 1.5
+    k2: 1.0
+    delta_bound: 0.4
+
+model:
+  width: 96
+  depth: 2
+  eps_quad: 0.00019
+  alpha_bar: 7.0e-05
+
+gauge:
+  input_dim: 2
+  initial_radius: 0.031
+
+gauge_log_radii_clamp: [-5.5, 3.0]
+
+alpha:
+  alpha_s: 0.027
+  alpha_v: 0.010
+
+box:
+  train_s: 4
+  train_v: 4
+
+ring:
+  delta_rel: 0.47
+  delta_abs: 0.23
+  rel_frac: 0.44
+  dist_eps: 0.092
+  dist_gamma: 0.86
+  detach_phi: true
+
+sample:
+  m_ring: 1024
+  m_out_global: 6144
+  m_size: 1024
+
+val:
+  N: 301
+  every: 100
+  tol_max: 0.0
+  tol_q: 0.0
+  s_eps_val: 0.001
+
+val_min_outside_frac: 0.02
+val_min_outside_count: 200
+val_dtype: float64
+
+tail:
+  mode: lse
+  beta: 47.4
+  topk_frac: 0.042
+
+weights:
+  w_plain_mean: 0.72
+  w_plain_tail: 0.77
+  w_ring: 0.57
+  w_size_pre: 0.0
+  w_size_post: 1.98
+  w_floor: 0.084
+  w_grad: 0.00037
+  w_plain_before: 1.0
+  w_plain_after: 0.7
+  w_ang: 4.1e-05
+
+size:
+  feas_patience: 2
+  ramp_iters: 623
+  revoke_freeze: 4
+  quantile: 0.97
+  reenable_p99_eta: 0.00032
+
+train:
+  epochs: 12000
+  lr: 0.0013
+  c_lower: 1.0e-4
+  grad_target: 20.4
+  grad_clip: 1.10
+  dec_clip: 48.3
+  s_eps_train: 0.00011
+
+optim:
+  lr: 0.0013
+  weight_decay: 5.5e-06
+
+polish:
+  enable: true
+  epochs: 500
+  lr: 5.0e-05
+
+io:
+  outputs_root: outputs

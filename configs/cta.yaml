@@ -1,0 +1,103 @@
+# CTA (Continuous Twisting Algorithm) - Best HPO Configuration
+# Results: A = 0.004 exclusion area
+
+seed: 42
+deterministic: true
+train_multi_disturbance: true
+
+controller:
+  name: cta
+  params:
+    k1: 1.0
+    k2: 1.0
+    k3: 0.3
+    delta_bound: 0.0
+
+model:
+  width: 96
+  depth: 2
+  eps_quad: 0.00085
+  alpha_bar: 1.4e-05
+
+gauge:
+  input_dim: 2
+  initial_radius: 0.061
+
+gauge_log_radii_clamp: [-5.5, 3.0]
+
+alpha:
+  alpha_s: 0.021
+  alpha_v: 0.033
+
+box:
+  train_s: 4
+  train_v: 4
+
+ring:
+  delta_rel: 0.49
+  delta_abs: 0.24
+  rel_frac: 0.30
+  dist_eps: 0.16
+  dist_gamma: 0.90
+  detach_phi: true
+
+sample:
+  m_ring: 3072
+  m_out_global: 6144
+  m_size: 512
+
+val:
+  N: 301
+  every: 100
+  tol_max: 0.0
+  tol_q: 0.0
+  s_eps_val: 0.001
+
+val_min_outside_frac: 0.02
+val_min_outside_count: 200
+val_dtype: float64
+
+tail:
+  mode: lse
+  beta: 41.1
+  topk_frac: 0.056
+
+weights:
+  w_plain_mean: 0.73
+  w_plain_tail: 0.73
+  w_ring: 0.54
+  w_size_pre: 0.0
+  w_size_post: 1.43
+  w_floor: 0.082
+  w_grad: 0.00035
+  w_plain_before: 1.0
+  w_plain_after: 0.7
+  w_ang: 8.9e-06
+
+size:
+  feas_patience: 2
+  ramp_iters: 940
+  revoke_freeze: 2
+  quantile: 0.90
+  reenable_p99_eta: 0.00011
+
+train:
+  epochs: 10000
+  lr: 0.0017
+  c_lower: 1.0e-4
+  grad_target: 34.4
+  grad_clip: 1.99
+  dec_clip: 40.0
+  s_eps_train: 2.0e-05
+
+optim:
+  lr: 0.0017
+  weight_decay: 2.8e-06
+
+polish:
+  enable: true
+  epochs: 500
+  lr: 5.0e-05
+
+io:
+  outputs_root: outputs
