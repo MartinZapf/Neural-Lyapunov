@@ -17,9 +17,9 @@ class TestControllerInstantiation:
         assert ctrl.state_dim == 2
 
     def test_cta_creation(self):
-        ctrl = CTA(k1=1.0, k2=1.0, k3=0.3)
+        ctrl = CTA(k1=2.7, k2=5.345, k3=1.1, k4=1.1)
         assert ctrl.name == "cta"
-        assert ctrl.state_dim == 2
+        assert ctrl.state_dim == 3
 
     def test_fosmc_creation(self):
         ctrl = FOSMC(k=1.0)
@@ -56,6 +56,22 @@ class TestControllerModes:
         assert f_plus.shape == (10, 3)
         assert f_minus.shape == (10, 3)
 
+    def test_cta_modes_shape(self):
+        ctrl = CTA()
+        z = torch.randn(10, 3)
+        f_plus, f_minus = ctrl.modes(z)
+        assert f_plus.shape == (10, 3)
+        assert f_minus.shape == (10, 3)
+
+    def test_cta_modes_all_shape(self):
+        ctrl = CTA()
+        z = torch.randn(10, 3)
+        f_pp, f_pm, f_mp, f_mm = ctrl.modes_all(z)
+        assert f_pp.shape == (10, 3)
+        assert f_pm.shape == (10, 3)
+        assert f_mp.shape == (10, 3)
+        assert f_mm.shape == (10, 3)
+
 
 class TestWorstDV:
     """Test worst-case dV/dt computation."""
@@ -73,6 +89,17 @@ class TestWorstDV:
         gradV = torch.randn(10, 1)
         dV = ctrl.worst_dV(gradV, z)
         assert dV.shape == (10,)
+
+    def test_worst_dv_cta(self):
+        ctrl = CTA()
+        z = torch.randn(10, 3)
+        gradV = torch.randn(10, 3)
+        dV = ctrl.worst_dV(gradV, z)
+        assert dV.shape == (10,)
+
+    def test_cta_disturbance_channel(self):
+        ctrl = CTA()
+        assert ctrl.disturbance_channel() == 2
 
 
 class TestFactory:

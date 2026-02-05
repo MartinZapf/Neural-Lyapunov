@@ -902,18 +902,16 @@ def train(cfg: dict):
         
         # Generate overview visualization using viz_overview.py module
         try:
-            # Try relative import first (when used as package)
-            try:
-                from .viz.viz_overview import (load_checkpoint, build_models, 
-                                             compute_grids, boundary_curve, radial_slices, make_figure,
-                                             compute_grids_3d, boundary_surface_3d, cross_section_slices_3d, make_figure_3d,
-                                             compute_grids_1d, make_figure_1d)
-            except ImportError:
-                # Fall back to absolute import (when run directly)
-                from viz.viz_overview import (load_checkpoint, build_models, 
-                                            compute_grids, boundary_curve, radial_slices, make_figure,
-                                            compute_grids_3d, boundary_surface_3d, cross_section_slices_3d, make_figure_3d,
-                                            compute_grids_1d, make_figure_1d)
+            # Add the repo root to path for viz module
+            import sys
+            repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            if repo_root not in sys.path:
+                sys.path.insert(0, repo_root)
+            
+            from viz.overview import (load_checkpoint, build_models, 
+                                      compute_grids, boundary_curve, radial_slices, make_figure,
+                                      compute_grids_3d, boundary_surface_3d, cross_section_slices_3d, make_figure_3d,
+                                      compute_grids_1d, make_figure_1d)
             
             # Load the model
             V_state, G_state, viz_cfg, meta = load_checkpoint(viz_model_path, dev)

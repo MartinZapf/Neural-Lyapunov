@@ -39,7 +39,7 @@ python viz/overview.py --model_path outputs/<run_dir>/best_model.pth
 |------------|-----|--------|-----------|-------------|
 | FOSMC | 1D | `fosmc.yaml` | r = 0.005 | First-order sliding mode |
 | STA | 2D | `sta.yaml` | A = 0.003 | Super-Twisting Algorithm |
-| CTA | 2D | `cta.yaml` | A = 0.004 | Continuous Twisting Algorithm |
+| CTA | 3D | `cta.yaml` | V = 3.0e-5 | Continuous Twisting Algorithm |
 | PID-SMC | 3D | `pidsmc.yaml` | V = 5.2e-3 | PID-like sliding mode |
 
 ## How It Works
@@ -105,8 +105,8 @@ def get_controller(name: str, **kwargs) -> BaseSMC:
 
 Start from the config most similar to your controller:
 - **1D systems:** Start from `configs/fosmc.yaml`
-- **2D systems:** Start from `configs/sta.yaml` or `configs/cta.yaml`
-- **3D systems:** Start from `configs/pidsmc.yaml`
+- **2D systems:** Start from `configs/sta.yaml`
+- **3D systems:** Start from `configs/pidsmc.yaml` or `configs/cta.yaml`
 
 Key parameters to adjust:
 

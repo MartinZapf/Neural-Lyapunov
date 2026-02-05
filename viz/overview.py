@@ -1,26 +1,20 @@
 from __future__ import annotations
-import argparse, os, math
+import argparse, os, math, sys
 import numpy as np
 import torch
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# Flexible imports to handle both relative and absolute imports
-try:
-    from ..controllers import get_controller
-    from ..models import SimpleLyapNet, LiftedLyapNet
-    from ..gauges import FlexibleGauge
-except ImportError:
-    # Fall back to absolute imports when relative imports fail
-    import sys
-    # Add parent directory to path
-    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
-    from controllers import get_controller
-    from models import SimpleLyapNet, LiftedLyapNet
-    from gauges import FlexibleGauge
+# Add src directory to path for neural_lyapunov imports
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_src_dir = os.path.join(_repo_root, "src")
+if _src_dir not in sys.path:
+    sys.path.insert(0, _src_dir)
+
+from neural_lyapunov.controllers import get_controller
+from neural_lyapunov.models import SimpleLyapNet, LiftedLyapNet
+from neural_lyapunov.gauges import FlexibleGauge
 
 
 def load_checkpoint(path: str, device: torch.device):
@@ -63,7 +57,7 @@ def build_models(V_state, G_state, cfg, device):
     
     # Detect dimension from controller configuration
     ctrl_name = cfg.get("controller", {}).get("name", "sta")
-    if ctrl_name == "pid_smc":
+    if ctrl_name in ("pid_smc", "cta"):
         input_dim = 3
     elif ctrl_name == "fosmc":
         input_dim = 1

@@ -213,38 +213,201 @@ class STA(BaseSMC):
 # -------------------------
 @dataclass
 class CTAParams:
-    k1: float = 1.0
-    k2: float = 1.0
-    k3: float = 0.3  # small continuous stabilizer on v-dot
-    delta_bound: float = 0.0  # Maximum disturbance magnitude
+    k1: float = 2.7    # Gain for |x₁|^(1/3)·sign(x₁)
+    k2: float = 5.345  # Gain for |x₂|^(1/2)·sign(x₂)
+    k3: float = 1.1    # Gain for sign(x₁) in twisting term
+    k4: float = 1.1    # Gain for sign(x₂) in twisting term
+    delta_bound: float = 0.0  # Maximum disturbance derivative magnitude
 
 
 class CTA(BaseSMC):
     """
-    A commonly used 'continuous twisting' variant in the same (s,v) coords:
-        sdot = -k1 * sqrt(|s|) * sign(s) + v
-        vdot = -k2 * sign(s) - k3 * s
-    This adds a continuous linear term (-k3 s) to smooth vdot.
+    Continuous Twisting Algorithm (Torres-González et al., 2017).
+    
+    True CTA is a 3-state system with Twisting structure in the integral:
+        ẋ₁ = x₂
+        ẋ₂ = -k₁⌊x₁⌉^(1/3) - k₂⌊x₂⌉^(1/2) + x₃
+        ẋ₃ = -k₃⌊x₁⌉^0 - k₄⌊x₂⌉^0 + Δ̇(t)
+    
+    Where ⌊x⌉^α = |x|^α · sign(x) and ⌊x⌉^0 = sign(x).
+    
+    State space: (x₁, x₂, x₃)
+    Discontinuities: At x₁ = 0 AND x₂ = 0 (two switching surfaces)
+    
+    This requires 4 Filippov modes for all sign combinations.
     """
     name = "cta"
-    state_dim = 2  # 2D system
+    state_dim = 3  # THIS IS A 3D SYSTEM
 
-    def __init__(self, k1: float = 1.0, k2: float = 1.0, k3: float = 0.3, delta_bound: float = 0.0):
-        self.params = CTAParams(k1=k1, k2=k2, k3=k3, delta_bound=delta_bound)
+    def __init__(self, k1: float = 2.7, k2: float = 5.345, k3: float = 1.1, k4: float = 1.1, delta_bound: float = 0.0):
+        self.params = CTAParams(k1=k1, k2=k2, k3=k3, k4=k4, delta_bound=delta_bound)
 
     def modes(self, z: Tensor) -> Tuple[Tensor, Tensor]:
-        s, v = z[:, 0], z[:, 1]
-        rt = torch.sqrt(torch.abs(s) + 1e-8)
-        # + mode
-        sdot_p = -self.params.k1 * rt + v
-        vdot_p = -self.params.k2 * torch.ones_like(s) - self.params.k3 * s
-        # - mode
-        sdot_m = +self.params.k1 * rt + v
-        vdot_m = +self.params.k2 * torch.ones_like(s) - self.params.k3 * s
+        """
+        Return Filippov modes for CTA along the x₁=0 switching surface.
+        
+        Note: CTA has discontinuities at BOTH x₁=0 and x₂=0. This method
+        returns modes varying with sign(x₁). The x₂ discontinuity is handled
+        via the overridden worst_dV method.
+        
+        Args:
+            z: States [x₁, x₂, x₃] of shape [..., 3]
+            
+        Returns:
+            f_plus: Dynamics for x₁ > 0, shape [..., 3]
+            f_minus: Dynamics for x₁ < 0, shape [..., 3]
+        """
+        x1, x2, x3 = z[:, 0], z[:, 1], z[:, 2]
+        
+        # Compute fractional powers
+        abs_x1 = torch.abs(x1) + 1e-8
+        abs_x2 = torch.abs(x2) + 1e-8
+        
+        x1_third = torch.pow(abs_x1, 1.0/3.0)  # |x₁|^(1/3)
+        x2_half = torch.sqrt(abs_x2)           # |x₂|^(1/2)
+        
+        sign_x2 = torch.sign(x2).clamp(-1, 1)
+        
+        # Common dynamics
+        dx1_dt = x2  # ẋ₁ = x₂ always
+        
+        # Plus mode (x₁ > 0 → sign(x₁) = +1)
+        # ẋ₂ = -k₁|x₁|^(1/3) - k₂|x₂|^(1/2)·sign(x₂) + x₃
+        dx2_dt_plus = -self.params.k1 * x1_third - self.params.k2 * x2_half * sign_x2 + x3
+        # ẋ₃ = -k₃ - k₄·sign(x₂)  (using sign(x₂) value)
+        dx3_dt_plus = -self.params.k3 * torch.ones_like(x1) - self.params.k4 * sign_x2
+        
+        # Minus mode (x₁ < 0 → sign(x₁) = -1)
+        dx2_dt_minus = +self.params.k1 * x1_third - self.params.k2 * x2_half * sign_x2 + x3
+        dx3_dt_minus = +self.params.k3 * torch.ones_like(x1) - self.params.k4 * sign_x2
+        
+        f_plus = torch.stack([dx1_dt, dx2_dt_plus, dx3_dt_plus], dim=1)
+        f_minus = torch.stack([dx1_dt, dx2_dt_minus, dx3_dt_minus], dim=1)
 
-        f_plus = torch.stack([sdot_p, vdot_p], dim=1)
-        f_minus = torch.stack([sdot_m, vdot_m], dim=1)
         return f_plus, f_minus
+    
+    def modes_all(self, z: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        """
+        Return all 4 Filippov modes for CTA.
+        
+        CTA has discontinuities at x₁=0 and x₂=0, requiring 4 modes:
+            (sign(x₁)=+1, sign(x₂)=+1) -> f_pp
+            (sign(x₁)=+1, sign(x₂)=-1) -> f_pm
+            (sign(x₁)=-1, sign(x₂)=+1) -> f_mp
+            (sign(x₁)=-1, sign(x₂)=-1) -> f_mm
+        """
+        x1, x2, x3 = z[:, 0], z[:, 1], z[:, 2]
+        
+        abs_x1 = torch.abs(x1) + 1e-8
+        abs_x2 = torch.abs(x2) + 1e-8
+        
+        x1_third = torch.pow(abs_x1, 1.0/3.0)
+        x2_half = torch.sqrt(abs_x2)
+        
+        dx1_dt = x2
+        
+        # Mode (++): sign(x₁)=+1, sign(x₂)=+1
+        dx2_pp = -self.params.k1 * x1_third - self.params.k2 * x2_half + x3
+        dx3_pp = -self.params.k3 - self.params.k4 * torch.ones_like(x1)
+        
+        # Mode (+-): sign(x₁)=+1, sign(x₂)=-1
+        dx2_pm = -self.params.k1 * x1_third + self.params.k2 * x2_half + x3
+        dx3_pm = -self.params.k3 + self.params.k4 * torch.ones_like(x1)
+        
+        # Mode (-+): sign(x₁)=-1, sign(x₂)=+1
+        dx2_mp = +self.params.k1 * x1_third - self.params.k2 * x2_half + x3
+        dx3_mp = +self.params.k3 - self.params.k4 * torch.ones_like(x1)
+        
+        # Mode (--): sign(x₁)=-1, sign(x₂)=-1
+        dx2_mm = +self.params.k1 * x1_third + self.params.k2 * x2_half + x3
+        dx3_mm = +self.params.k3 + self.params.k4 * torch.ones_like(x1)
+        
+        f_pp = torch.stack([dx1_dt, dx2_pp, dx3_pp], dim=1)
+        f_pm = torch.stack([dx1_dt, dx2_pm, dx3_pm], dim=1)
+        f_mp = torch.stack([dx1_dt, dx2_mp, dx3_mp], dim=1)
+        f_mm = torch.stack([dx1_dt, dx2_mm, dx3_mm], dim=1)
+        
+        return f_pp, f_pm, f_mp, f_mm
+    
+    def disturbance_channel(self) -> int:
+        """Return disturbance channel - disturbance derivative enters ẋ₃."""
+        return 2
+    
+    def _compute_dV_at_disturbance(
+        self, gradV: Tensor, z: Tensor, delta: float, s_eps: float = 1e-3
+    ) -> Tensor:
+        """
+        Compute dV/dt for CTA considering BOTH discontinuity surfaces.
+        
+        CTA has discontinuities at x₁=0 and x₂=0, so we need to consider
+        the Filippov set-valued dynamics at both surfaces.
+        """
+        x1, x2 = z[:, 0], z[:, 1]
+        dist_channel = self.disturbance_channel()
+        
+        # Get all 4 modes
+        f_pp, f_pm, f_mp, f_mm = self.modes_all(z)
+        
+        # Worst-case disturbance contribution
+        disturbance_contrib = torch.abs(gradV[:, dist_channel]) * delta
+        
+        # Determine proximity to each switching surface
+        near_x1 = torch.abs(x1) <= s_eps
+        near_x2 = torch.abs(x2) <= s_eps
+        
+        # 4 regions based on proximity to switching surfaces
+        far_both = ~near_x1 & ~near_x2         # Far from both surfaces
+        near_x1_only = near_x1 & ~near_x2      # Near x₁=0 only
+        near_x2_only = ~near_x1 & near_x2      # Near x₂=0 only
+        near_both = near_x1 & near_x2          # Near both surfaces
+        
+        dV = torch.empty_like(x1)
+        
+        # Region 1: Far from both surfaces - use actual signs
+        if far_both.any():
+            sig1 = torch.sign(x1[far_both]).clamp(-1, 1)
+            sig2 = torch.sign(x2[far_both]).clamp(-1, 1)
+            
+            # Select the correct mode based on signs
+            f_far = torch.where(
+                (sig1 > 0).unsqueeze(1),
+                torch.where((sig2 > 0).unsqueeze(1), f_pp[far_both], f_pm[far_both]),
+                torch.where((sig2 > 0).unsqueeze(1), f_mp[far_both], f_mm[far_both])
+            )
+            dV[far_both] = torch.sum(gradV[far_both] * f_far, dim=1) + disturbance_contrib[far_both]
+        
+        # Region 2: Near x₁=0 only - max over sign(x₁)
+        if near_x1_only.any():
+            sig2 = torch.sign(x2[near_x1_only]).clamp(-1, 1)
+            # Select based on sign(x₂), max over sign(x₁)
+            f_p = torch.where((sig2 > 0).unsqueeze(1), f_pp[near_x1_only], f_pm[near_x1_only])
+            f_m = torch.where((sig2 > 0).unsqueeze(1), f_mp[near_x1_only], f_mm[near_x1_only])
+            dVp = torch.sum(gradV[near_x1_only] * f_p, dim=1)
+            dVm = torch.sum(gradV[near_x1_only] * f_m, dim=1)
+            dV[near_x1_only] = torch.maximum(dVp, dVm) + disturbance_contrib[near_x1_only]
+        
+        # Region 3: Near x₂=0 only - max over sign(x₂)
+        if near_x2_only.any():
+            sig1 = torch.sign(x1[near_x2_only]).clamp(-1, 1)
+            # Select based on sign(x₁), max over sign(x₂)
+            f_p = torch.where((sig1 > 0).unsqueeze(1), f_pp[near_x2_only], f_mp[near_x2_only])
+            f_m = torch.where((sig1 > 0).unsqueeze(1), f_pm[near_x2_only], f_mm[near_x2_only])
+            dVp = torch.sum(gradV[near_x2_only] * f_p, dim=1)
+            dVm = torch.sum(gradV[near_x2_only] * f_m, dim=1)
+            dV[near_x2_only] = torch.maximum(dVp, dVm) + disturbance_contrib[near_x2_only]
+        
+        # Region 4: Near both surfaces - max over all 4 modes
+        if near_both.any():
+            dVpp = torch.sum(gradV[near_both] * f_pp[near_both], dim=1)
+            dVpm = torch.sum(gradV[near_both] * f_pm[near_both], dim=1)
+            dVmp = torch.sum(gradV[near_both] * f_mp[near_both], dim=1)
+            dVmm = torch.sum(gradV[near_both] * f_mm[near_both], dim=1)
+            dV[near_both] = torch.maximum(
+                torch.maximum(dVpp, dVpm),
+                torch.maximum(dVmp, dVmm)
+            ) + disturbance_contrib[near_both]
+        
+        return dV
 
 
 # ----------------------------------
