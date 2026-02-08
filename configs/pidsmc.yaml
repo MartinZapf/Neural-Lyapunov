@@ -1,5 +1,5 @@
 # PID-SMC (3D PID-like SMC) - Best HPO Configuration
-# Results: V = 5.2e-3 exclusion volume
+# Results: V = 5.2e-4 exclusion volume
 
 seed: 42
 deterministic: true

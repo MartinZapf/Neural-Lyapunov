@@ -20,22 +20,23 @@ import optuna
 from optuna.pruners import MedianPruner, SuccessiveHalvingPruner
 from optuna.samplers import TPESampler
 
-# Import the existing pipeline
-try:
-    from ..utils import load_yaml, ensure_dir, dump_yaml
-    from ..train import train as train_fn
-    from ..controllers import get_controller
-    from ..models import SimpleLyapNet
-    from ..gauges import OrientedEllipsoidGauge
-    from ..validators import validate_global_outside, validate_global_outside_1d
-except ImportError:
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from utils import load_yaml, ensure_dir, dump_yaml
-    from train import train as train_fn
-    from controllers import get_controller
-    from models import SimpleLyapNet
-    from gauges import OrientedEllipsoidGauge
-    from validators import validate_global_outside, validate_global_outside_3d, validate_global_outside_1d
+# Ensure src/ is importable when running as `python hpo/tune.py`.
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(_THIS_DIR)
+_SRC_DIR = os.path.join(_REPO_ROOT, "src")
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+from neural_lyapunov.utils import load_yaml, ensure_dir, dump_yaml
+from neural_lyapunov.train import train as train_fn
+from neural_lyapunov.controllers import get_controller
+from neural_lyapunov.models import SimpleLyapNet, LiftedLyapNet
+from neural_lyapunov.gauges import OrientedEllipsoidGauge
+from neural_lyapunov.validators import (
+    validate_global_outside,
+    validate_global_outside_3d,
+    validate_global_outside_1d,
+)
 
 
 # =============================================================================
@@ -99,7 +100,6 @@ def _build_models(payload: Dict[str, Any], cfg: Dict[str, Any], device: torch.de
 
     # Use LiftedLyapNet if configured
     if use_lifted:
-        from models import LiftedLyapNet
         V = LiftedLyapNet(input_dim=input_dim, lift_type=lift_type, 
                           width=model_init_cfg["width"], depth=model_init_cfg["depth"],
                           eps_quad=model_init_cfg["eps_quad"], alpha_bar=model_init_cfg["alpha_bar"]).to(device)
@@ -785,7 +785,7 @@ def main():
         bt = study.best_trial
         print(f"\nBest Trial #{bt.number}:")
         print(f"  Area (score): {bt.value:.6f}")
-        print(f"  Feasible: {bt.user_attrs.get('feasible_B', 'N/A')}")
+        print(f"  Feasible: {bt.user_attrs.get('feasible', 'N/A')}")
         print(f"\nBest Parameters:")
         for k, v in sorted(bt.params.items()):
             if isinstance(v, float):
@@ -795,7 +795,13 @@ def main():
         
         # Save best config
         best_cfg = copy.deepcopy(base_cfg)
-        best_cfg = _apply_trial_params(best_cfg, bt)
+        ctrl_best = get_controller(base_cfg["controller"]["name"], **base_cfg["controller"]["params"])
+        if ctrl_best.state_dim == 1:
+            best_cfg = _apply_trial_params_1d(best_cfg, bt)
+        elif ctrl_best.state_dim == 3:
+            best_cfg = _apply_trial_params_3d(best_cfg, bt)
+        else:
+            best_cfg = _apply_trial_params(best_cfg, bt)
         best_cfg_path = os.path.join(args.outputs_root, f"{args.study}_best_config.yaml")
         dump_yaml(best_cfg, best_cfg_path)
         print(f"\nBest config saved to: {best_cfg_path}")

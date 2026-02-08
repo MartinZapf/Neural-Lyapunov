@@ -40,7 +40,7 @@ python viz/overview.py --model_path outputs/<run_dir>/best_model.pth
 | FOSMC | 1D | `fosmc.yaml` | r = 0.005 | First-order sliding mode |
 | STA | 2D | `sta.yaml` | A = 0.003 | Super-Twisting Algorithm |
 | CTA | 3D | `cta.yaml` | V = 3.0e-5 | Continuous Twisting Algorithm |
-| PID-SMC | 3D | `pidsmc.yaml` | V = 5.2e-3 | PID-like sliding mode |
+| PID-SMC | 3D | `pidsmc.yaml` | V = 5.2e-4 | PID-like sliding mode |
 
 ## How It Works
 

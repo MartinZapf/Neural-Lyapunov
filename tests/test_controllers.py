@@ -101,6 +101,10 @@ class TestWorstDV:
         ctrl = CTA()
         assert ctrl.disturbance_channel() == 2
 
+    def test_pidsmc_disturbance_channel(self):
+        ctrl = PIDSMC()
+        assert ctrl.disturbance_channel() == 2
+
 
 class TestFactory:
     """Test get_controller factory."""

@@ -46,8 +46,7 @@ class BaseSMC:
         - For 3D systems: disturbance enters last state (index 2)
 
         NOTE: Subclasses may override this if their plant dynamics differ.
-        For example, PIDSMC overrides to return 1 because its plant has
-        disturbance entering ẋ₂, not ẋ₃.
+        Keep overrides aligned with the modeled dynamics used in the paper.
 
         Returns:
             int: State index where disturbance enters
@@ -472,7 +471,7 @@ class PIDSMC(BaseSMC):
     System:
         ẋ₁ = x₂
         ẋ₂ = -k₁⌊x₁⌉^(1/3) - k₂⌊x₂⌉^(1/2) + x₃
-        ẋ₃ = -k₃⌊x₁⌉^0
+        ẋ₃ = -k₃⌊x₁⌉^0 + δ(t)
     
     Where ⌊x⌉^α = |x|^α · sign(x) and ⌊x⌉^0 = sign(x).
     
@@ -528,20 +527,17 @@ class PIDSMC(BaseSMC):
         """
         Return disturbance channel for PID-SMC.
 
-        PID-SMC plant dynamics (from user's specification):
+        PID-SMC dynamics used in the paper:
             ẋ₁ = x₂
-            ẋ₂ = u + φ    ← matched disturbance φ enters HERE (index 1)
-            φ̇ = Δ(t)
+            ẋ₂ = -k₁⌊x₁⌉^(1/3) - k₂⌊x₂⌉^(1/2) + x₃
+            ẋ₃ = -k₃⌊x₁⌉^0 + δ(t)
 
-        where u = -k₁⌊x₁⌉^(1/3) - k₂⌊x₂⌉^(1/2) + x₃ is the control input.
-
-        The matched disturbance φ enters the ẋ₂ equation, which corresponds
-        to state index 1 (zero-indexed), NOT index 2.
+        The disturbance enters the ẋ₃ equation (index 2).
 
         Returns:
-            int: 1 (disturbance enters ẋ₂ channel)
+            int: 2 (disturbance enters ẋ₃ channel)
         """
-        return 1  # Disturbance enters ẋ₂, not ẋ₃!
+        return 2
 
 
 # -----------------------

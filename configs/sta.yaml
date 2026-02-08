@@ -9,8 +9,8 @@ controller:
   name: sta
   params:
     k1: 1.5
-    k2: 1.0
-    delta_bound: 0.4
+    k2: 1.1
+    delta_bound: 0.0
 
 model:
   width: 96
