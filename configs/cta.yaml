@@ -1,5 +1,6 @@
 # CTA (Continuous Twisting Algorithm) - 3D System Configuration
 # Based on Torres-González et al. (2017) - True CTA with Twisting structure
+# Result: gauge volume V = 3.0e-5
 
 seed: 42
 deterministic: true

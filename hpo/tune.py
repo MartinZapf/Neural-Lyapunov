@@ -1,7 +1,7 @@
 """
 Optuna-based hyperparameter optimization for Neural Lyapunov.
 
-Finds hyperparameters that minimize exclusion boundary size while maintaining
+Finds hyperparameters that minimize gauge volume while maintaining
 Lyapunov feasibility. Supports parallel workers via SQLite storage.
 
 Usage:
