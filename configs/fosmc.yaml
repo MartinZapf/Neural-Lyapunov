@@ -1,5 +1,5 @@
 # FOSMC (First-Order SMC) - Best HPO Configuration
-# Results: r = 0.005 boundary radius
+# Result: gauge = none (dense-grid decrease test passes at all nonzero grid points in the training box)
 
 seed: 42
 deterministic: true

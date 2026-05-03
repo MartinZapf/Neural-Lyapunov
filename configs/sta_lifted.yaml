@@ -1,6 +1,6 @@
-# STA (Super-Twisting Algorithm) - Best HPO Configuration
-# Result: gauge area A = 0.003
-
+# STA-lifted: Super-Twisting trained in Moreno-Osorio coordinates.
+# Identical to sta.yaml but uses LiftedLyapNet (ξ₁=|s|^(1/2)·sign(s), ξ₂=v).
+# Result: gauge = none (dense-grid decrease test passes at all nonzero grid points in the training box)
 seed: 42
 deterministic: true
 train_multi_disturbance: false
@@ -17,6 +17,8 @@ model:
   depth: 2
   eps_quad: 0.00019
   alpha_bar: 7.0e-05
+  use_lifted_coords: true
+  lift_type: sta
 
 gauge:
   input_dim: 2
