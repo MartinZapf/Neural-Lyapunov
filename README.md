@@ -42,6 +42,18 @@ python viz/overview.py --model_path outputs/<run_dir>/best_model.pth
 ```
 
 The same trainer runs every reported controller — only the YAML config differs.
+For the two configurations that report `Gauge = none` (`fosmc.yaml` and
+`sta_lifted.yaml`), an alternative no-gauge driver is also provided:
+
+```bash
+python -m neural_lyapunov.train_bc99 --config configs/fosmc.yaml --seed 0
+python -m neural_lyapunov.train_bc99 --config configs/sta_lifted.yaml --seed 0
+```
+
+This driver trains `V` directly with `α ≡ 0` and Jacobian/curvature
+regularization, and validates `max V̇_worst` on a dense uniform grid of the
+training box, masking only `‖z‖ < 1e-6`. It is the procedure that
+produces the `Gauge = none` rows in the table below.
 
 ## Reported results
 
@@ -56,12 +68,14 @@ produce the results reported in the paper.
 | CTA          | 3   | `cta.yaml`            | volume `V = 3.0e-5`        | 50³             | 5 min      |
 | PID-SMC      | 3   | `pidsmc.yaml`         | volume `V = 5.2e-4`        | 50³             | 25 min     |
 
-**What `none` means.** The gauge module is still trained, but the reported
-result is accepted as `none` when the dense-grid decrease test passes on every
-nonzero grid point in the training box. The equilibrium itself is excluded
-from the derivative validation, since the `eps_quad·‖z‖²` term in the
-Lyapunov ansatz is nonsmooth at the origin under the `α(z)` regularizer used
-for training.
+**What `none` means.** The reported result is accepted as `none` when the
+dense-grid decrease test passes on every nonzero grid point in the training
+box. The equilibrium itself is excluded from derivative validation. For the
+`none` rows above (`fosmc.yaml` and `sta_lifted.yaml`) this is verified by the
+`train_bc99` driver, which trains `V` with `α ≡ 0` plus
+Jacobian/curvature regularization in place of the gauge-driven shrink-and-
+verify loop. The other three rows use the standard gauge-trained pipeline and
+report a positive-volume gauge.
 
 **STA standard vs lifted.** The same closed-loop STA dynamics admit two
 parameterizations of the Lyapunov network. In standard coordinates `(s, v)`
